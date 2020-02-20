@@ -13,6 +13,8 @@ import random
 from TE2_v2 import TE_ctrl_init2
 from breadth_first_search import BFS
 import csv
+from plot_trajectory import plot_trajectory
+
 # from synth_graph import synth_graph
 
 # Grid: 4-by-4
@@ -246,3 +248,6 @@ file.close()
 
 file = open(fname2, "w+")
 file.close()
+
+#%%  Plot trajectory:
+animation = plot_trajectory(SYS_TRAJ, ENV_TRAJ, FUEL_TRAJ)
