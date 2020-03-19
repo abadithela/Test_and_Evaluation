@@ -10,6 +10,8 @@
 # Phi is the specification
 
 import numpy as np
+from random import randrange
+import pandas as pd
 # import networkx as nx
 
 # class GG:
@@ -323,7 +325,145 @@ def edge_info(GEdges, N, sys_win, env_win, W_V1, W_V2):
 # Finding edge information to then pass into synth_test_strategies:
 env_edge_info, sys_edge_info = edge_info(GEdges, N, sys_win, env_win, W_V1, W_V2)
 
+# Return edges where v is the starting vertex. The vertex input is in the form of [e,s]
+# Player is either the system or the environment
+def edge(v, edge_info, player):
+    v_edges = []
+    st = set_state(v, player)
+    v_edges = [edges for edges in edge_info if edges[0]==st]
+    v_edges_idx = [ii for ii in len(edge_info) if edge_info[ii][0]==st]
+    return v_edges, v_edges_idx
+
+# Input v: vertex containing system and environment information
+#        player: 'e' or 's' for environment or system
+# Output: Returns vertex
+
+def set_state(v, player):
+    x = state(v[1], v[0]) # Feed in the system location and environment location
+    if(player == 'e'):
+        st = "v1_"+str(x)
+    elif(player == 's'):
+        st = "v2_"+str(x)
+    else:
+        print("Error in set_state: Input either 's' (system) or 'e' (environment) for the player variable.")
+        st = []
+    return st
+
+# Randomly choosing a successor vertex from a given set of vertices
+def random_succ(succ_vts):
+    r = []
+    if succ_vts:
+        l = len(succ_vts)
+        r = succ_vts[randrange(l)]
+    else:
+        print("Error in random_succ: The input list is empty.")
+    return r
 # Synthesizing test strategies:
 # ToDo: Write this script
-def synth_test_strategies():
-    pass                                                   
+# Environment goes first and then the system acts
+# Test run is a state-action sequence: [e1, s1, e2, ...]
+# Wf: Final winning set
+def synth_test_strategies(env_edge_info, sys_edge_info, e0, W, Wf):
+    test_run = [e0]
+    start = e0
+    player = 'e'
+    while start not in Wf: # Final winning set
+        if (player=='e'):
+            edge_information = env_edge_info.copy()
+            succ_edge_information = sys_edge_info.copy()
+            succ_player = 's'
+        
+            edges, edges_idx = edge(start, edge_information, player)
+            succ = [edge[1] for edge in edges] # List of all system successor vertices
+            succ_win = [edge[4] for edge in edges]
+            # First check if e0 is in the maximal winning set:
+            if start not in W:
+                succ_not_win = [succ[ii] for ii in len(succ_win) if not succ_win[ii]] # All successor vertices not in winning set
+                fin = finish(succ_not_win, succ, edges_idx, player)
+                test_run.append(fin)
+                break
+            # Once you're outside the winning set, there's no way back in
+            # ToDo: Make the following modular in functions...
+            else:
+                assert all(succ_win) # All successor vertices are winning vertices
+                succ_1 = [succ[ii] for ii in len(succ) if edges[ii][4] == 1]
+                succ_2 = [succ[ii] for ii in len(succ) if edges[ii][4] == 2]
+                succ_1_idx = [edges_idx[ii] for ii in len(succ) if edges[ii][4] == 1]
+                succ_2_idx = [edges_idx[ii] for ii in len(succ) if edges[ii][4] == 2]
+                # Unvisited nodes
+                unvisit_succ_1 = [succ[ii] for ii in len(succ) if (edges[ii][4] == 1 and edges[ii][3] == 0)]
+                unvisit_succ_2 = [succ[ii] for ii in len(succ) if (edges[ii][4] == 2 and edges[ii][3] == 0)]
+                # Indices of unvisited nodes:
+                unvisit_succ_1_idx = [edges_idx[ii] for ii in len(succ) if (edges[ii][4] == 1 and edges[ii][3] == 0)]
+                unvisit_succ_2_idx = [edges_idx[ii] for ii in len(succ) if (edges[ii][4] == 2 and edges[ii][3] == 0)]
+
+                # Successor nodes in same winning set with some winning actions not taken
+                action_succ_1 = []
+                action_succ_2 = []
+                action_succ_1_idx = []
+                action_succ_2_idx = []
+                for ii in range(len(succ_1)):
+                    s1 = succ_1[ii]
+                    s1_idx = succ_1_idx[ii]
+                    s1_edges, s1_edge_idx = edges(s1, succ_edge_information, succ_player)
+                    # Have the winning actions been taken?
+                    untested_winning_transitions1 = [t for t in s1_edges if (s1_edges[3]==0 and s1_edges[4])]
+                    if untested_winning_transitions1:
+                        if not action_succ_1:
+                            action_succ_1 = [s1]
+                            action_succ_1_idx = s1_idx
+                        else:
+                            action_succ_1.append[s1]
+                            action_succ_1_idx.append[s1_idx]
+                # Successor nodes in attractor winning set with some winning actions not taken:
+                for ii in range(len(succ_2)):
+                    s2 = succ_2[ii]
+                    s2_idx = succ_2_idx[ii]
+                    s2_edges, s2_edge_idx = edge(s2, succ_edge_information, succ_player)
+                    # Have the winning actions been taken?
+                    untested_winning_transitions2 = [t for t in s2_edges if (s2_edges[3]==0 and s2_edges[4])]
+                    if untested_winning_transitions2:
+                        if not action_succ_2:
+                            action_succ_2 = [s2]
+                            action_succ_2_idx = s2_idx
+                        else:
+                            action_succ_2.append[s2]
+                            action_succ_2_idx.append[s2_idx]
+
+                # First, go through all unvisited vertices in the same winning set, before proceeding to the attractor set at the next level
+                if unvisit_succ_1:
+                    fin = finish(unvisit_succ_1, succ, edges_idx, player)
+                elif unvisit_succ_2:
+                    fin = finish(unvisit_succ_2, succ, edges_idx, player)
+                elif action_succ_1:
+                    fin = finish(action_succ_1, succ, edges_idx, player)
+                elif action_succ_2:
+                    fin = finish(action_succ_2, succ, edges_idx, player)
+                else:
+                    fin = finish(succ, succ, edges_idx, player)
+            # Then keep a loop until you reach the winning set
+                test_run.append(fin)
+
+        # Here, we use the correct-by-construction controller to respond to the environment changes
+        elif (player == 's'):
+            edge_information = sys_edge_info.copy()
+            succ_edge_information = env_edge_info.copy()
+            succ_player = 'e'
+        else:
+            print("Player must be 'e' or 's'")
+    return test_run                                              
+
+# Function to find the end_vertex randomly from a list of vertices vts, succ is the list of all successors, edge_idx is the index of all edges in the main player_edge_info list
+# Function also takes care of updating the main env_Edge_info or sys_edge_info list
+def finish(vts, succ, edges_idx, player):
+    rand_fin = random_succ(vts) # Choosing final state
+    rand_fin_idx = edges_idx[succ.index(rand_fin)]# Finding final state winning index in either sys_edge_info/env_edge_info
+
+    # Increasing number of times successor has been visited
+    if player == 'e':
+        env_edge_info[rand_fin_idx][3] += 1
+    elif player == 's':
+        sys_edge_info[rand_fin_idx][3] += 1
+    rand_fin_sys, rand_fin_env = get_state(rand_fin)
+    fin = [rand_fin_env, rand_fin_sys]
+    return fin
