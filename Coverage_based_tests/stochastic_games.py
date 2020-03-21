@@ -13,6 +13,17 @@ import numpy as np
 from random import randrange
 import pandas as pd
 # import networkx as nx
+# File for system controller:
+from strategy_simple_runner_blocker import runner
+
+##% Defining variables for test strategy synthesis:
+# Filenames for stored system controllers and related variables:
+fname = "strategy_simple_runner_blocker.py"
+class_name = "runner"
+sys_var = "Xr" # This is the system variable that goes in the runner function
+
+# Max. number of test-cases in the test suite:
+Ntests = 3
 
 # class GG:
 #     def __init__(self, V1, V2, Vp, A1, A2, Ap, T1, T2, Tp, L):
@@ -177,7 +188,6 @@ def get_state(state):
         sys_state = state//5
     return sys_state, env_state
 
-
 ### Main run of the file:
 # Runner blocker example
 Ns = 5
@@ -331,7 +341,7 @@ def edge(v, edge_info, player):
     v_edges = []
     st = set_state(v, player)
     v_edges = [edges for edges in edge_info if edges[0]==st]
-    v_edges_idx = [ii for ii in len(edge_info) if edge_info[ii][0]==st]
+    v_edges_idx = [ii for ii in range(len(edge_info)) if edge_info[ii][0]==st]
     return v_edges, v_edges_idx
 
 # Input v: vertex containing system and environment information
@@ -358,15 +368,23 @@ def random_succ(succ_vts):
     else:
         print("Error in random_succ: The input list is empty.")
     return r
-# Synthesizing test strategies:
-# ToDo: Write this script
+
+# Function to synthesize a single test strategy:
 # Environment goes first and then the system acts
 # Test run is a state-action sequence: [e1, s1, e2, ...]
 # Wf: Final winning set
-def synth_test_strategies(env_edge_info, sys_edge_info, e0, W, Wf):
+sys_control = runner()
+def synth_test_strategy(env_edge_info, sys_edge_info, e0, env_win, sys_win):
     test_run = [e0]
     start = e0
     player = 'e'
+    if(player == 'e'):
+        Wf = env_win[0]
+        W = env_win[N-1]
+    else:
+        Wf = sys_win[0]
+        W = sys_win[N-1]
+        
     while start not in Wf: # Final winning set
         if (player=='e'):
             edge_information = env_edge_info.copy()
@@ -378,7 +396,7 @@ def synth_test_strategies(env_edge_info, sys_edge_info, e0, W, Wf):
             succ_win = [edge[4] for edge in edges]
             # First check if e0 is in the maximal winning set:
             if start not in W:
-                succ_not_win = [succ[ii] for ii in len(succ_win) if not succ_win[ii]] # All successor vertices not in winning set
+                succ_not_win = [succ[ii] for ii in range(len(succ_win)) if not succ_win[ii]] # All successor vertices not in winning set
                 fin = finish(succ_not_win, succ, edges_idx, player)
                 test_run.append(fin)
                 break
@@ -443,15 +461,36 @@ def synth_test_strategies(env_edge_info, sys_edge_info, e0, W, Wf):
                     fin = finish(succ, succ, edges_idx, player)
             # Then keep a loop until you reach the winning set
                 test_run.append(fin)
+            player = 's'
+            start = fin
 
         # Here, we use the correct-by-construction controller to respond to the environment changes
         elif (player == 's'):
             edge_information = sys_edge_info.copy()
             succ_edge_information = env_edge_info.copy()
             succ_player = 'e'
+            # Correct-by-construction controller for system:
+            fin = system_controller(start)
+            test_run.append(fin)
+            player = 'e'
+            start = fin
         else:
             print("Player must be 'e' or 's'")
     return test_run                                              
+
+# Function to synthesize a test suite:
+def test_suite(N, Ntests, env_win, sys_win):
+    # Wf = [env_win[0], sys_win[0]]
+    # W = [env_win[N-1], sys_win[N-1]]
+    e0 = [2,1]
+    test_suite = []
+    for ii in range(Ntests):
+        test = synth_test_strategy(env_edge_info, sys_edge_info, e0, env_win, sys_win)
+        if test_suite:
+            test_suite.append(test)
+        else:
+            test_suite = [test]
+    return test_suite
 
 # Function to find the end_vertex randomly from a list of vertices vts, succ is the list of all successors, edge_idx is the index of all edges in the main player_edge_info list
 # Function also takes care of updating the main env_Edge_info or sys_edge_info list
@@ -464,6 +503,22 @@ def finish(vts, succ, edges_idx, player):
         env_edge_info[rand_fin_idx][3] += 1
     elif player == 's':
         sys_edge_info[rand_fin_idx][3] += 1
-    rand_fin_sys, rand_fin_env = get_state(rand_fin)
+    rand_fin_sys, rand_fin_env = get_state(int(rand_fin[3:]))
     fin = [rand_fin_env, rand_fin_sys]
     return fin
+
+# A function to take in the correct-by-construction controller for the system:
+def system_controller(start):
+    sys_pos, env_pos = get_state(start)
+    u = runner.move(sys_control, env_pos)
+    sys_pos = u[sys_var]
+    finish = [env_pos, sys_pos]
+    return finish
+
+# Function for testing node coverage:
+def node_coverage():
+    pass
+
+# Test Suite
+TS = test_suite(N, Ntests, env_win, sys_win)
+print(TS)
