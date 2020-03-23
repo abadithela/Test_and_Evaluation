@@ -13,7 +13,6 @@ import numpy as np
 from random import randrange
 # import pandas as pd
 # import networkx as nx
-# File for system controller:
 from strategy_simple_runner_blocker import runner
 
 ##% Defining variables for test strategy synthesis:
@@ -21,9 +20,6 @@ from strategy_simple_runner_blocker import runner
 fname = "strategy_simple_runner_blocker.py"
 class_name = "runner"
 sys_var = "Xr" # This is the system variable that goes in the runner function
-
-# Max. number of test-cases in the test suite:
-Ntests = 3
 
 # Unsafe set:
 def unsafe(collision_indices):
@@ -40,9 +36,9 @@ def trans_sys(V1, V2, Vp, T1, T2, Tp, sink):
         GVp = []
     GEdges=[]
     # First all environment action transitions:
-    for env_state in range(1,6):
+    for env_state in range(1,Ne):
         for end_env_state in T1[env_state-1]:
-            for sys_state in range(1,6):
+            for sys_state in range(1,Ns):
                 start_state = state(sys_state, env_state)
                 start_vtx = "v1_"+str(start_state)
                 if start_vtx in sink:
@@ -52,9 +48,9 @@ def trans_sys(V1, V2, Vp, T1, T2, Tp, sink):
                 edge = [start_vtx, end_vtx, "ae"]
                 GEdges.append(edge)
     # Now, all system action transitions:
-    for sys_state in range(1,6):
+    for sys_state in range(1,Ns):
         for end_sys_state in T2[sys_state-1]:
-            for env_state in range(1,6):
+            for env_state in range(1,Ne):
                 start_state = state(sys_state, env_state)
                 start_vtx = "v2_"+str(start_state)
                 if start_vtx in sink:
@@ -67,7 +63,7 @@ def trans_sys(V1, V2, Vp, T1, T2, Tp, sink):
 
 # Generate winning sets for 2 player games:
 def state(sys_loc, env_loc):
-    return 5*(sys_loc) + env_loc
+    return Ne*(sys_loc) + env_loc
 
 # Given number of system and environment transitions:
 def vertices(Ns, Ne):
@@ -163,105 +159,57 @@ def pre(GVp, GEdges, W0, U, qual1, qual2, qual3):
     return Win
 
 def get_state(state):
-    if state%5 == 0:
-        env_state = 5
-        sys_state = state/5 - 1
+    if state%Ne == 0:
+        env_state = Ne
+        sys_state = state/Ne - 1
     else:
-        env_state = state%5
-        sys_state = state//5
+        env_state = state%Ne
+        sys_state = state//Ne
     return env_state, sys_state
 
-### Main run of the file:
-# Runner blocker example
-Ns = 5
-Ne = 5
-V1, V2, Vp = vertices(Ns,Ne)
-# Transition system
-T1 = [[1], [3], [2,4], [3], [5]] #Environment transitions
-T2 = [[1,2,3,4], [1,2,3,5], [1,2,3,4,5], [1,3,4,5], [2,3,4,5]] # System transitions
-Tp = []
-
-collision_indices = [2,3,4]
-# Unsafe set
-U = unsafe(collision_indices)
-
-# Graph transition
-GVp, GEdges = trans_sys(V1, V2, Vp, T1, T2, Tp, U)
-
-
-
-# Initial Winning set:
-sys_W0 = [] # Winning states from system action states
-env_W0 = [] # Winning states from environment action states
-for env_state in [2,3,4]:
-    for sys_state in [5]:
-        w0 = state(sys_state, env_state)
-        sys_W0.extend(["v2_"+str(w0)])
-        env_W0.extend(["v1_"+str(w0)])
-W0 = [env_W0, sys_W0]
-
-N = 8 # Can reach winning set in atmost 5 steps
-W = synt_winning_set(GVp, GEdges, U, W0, N)
-print(W)
-
-# Reachability: 
-# If this is a winning set, it is a winning set only ... 
-# Create copies of vertices to store their winning set information:
-# -1 denotes that the vertex has not yet been designated in a winning set
-W_V1 = [[v1, get_state(int(v1[3:])), -1] for v1 in V1] # Env. action states
-W_V2 = [[v2, get_state(int(v2[3:])), -1] for v2 in V2] # Sys. action states
-W_Vp = [[vp, get_state(int(vp[3:])), -1] for vp in Vp] # Prob. action states
-
 # Retrieve states:
-sys_win = []
-env_win = []
-# Counters to check that the number of environment and system winning vertices are correctly recorded in W_V1 and W_V2
-n_sys_win = 0
-n_env_win = 0
-for ii in range(0,N):
-    W_ii = W[ii].copy()
-    env_action_states = W_ii[0].copy()
-    sys_action_states = W_ii[1].copy()
-    sys_win_ii = []
-    env_win_ii = []
-    for ee in env_action_states:
-        ee_idx = V1.index(ee)
-        env_temp_ptr = W_V1[ee_idx]  # Temporary pointer to point to the env winning list
-        if env_temp_ptr[2]==-1:      # If there is not a winning set assignment yet, make an assignment
-            env_temp_ptr[2] = ii
-            n_env_win += 1
-        s = int(ee[3:])
-        [env_st, sys_st] = get_state(s)
-        env_win_ii.append([env_st, sys_st])
-    for ss in sys_action_states:
-        ss_idx = V2.index(ss)
-        sys_temp_ptr = W_V2[ss_idx]   # Temporary pointer to the sys winning list
-        if sys_temp_ptr[2]==-1:
-            sys_temp_ptr[2] = ii
-            n_sys_win += 1
-        s = int(ss[3:])
-        [env_st, sys_st] = get_state(s)
-        sys_win_ii.append([env_st, sys_st])
+def retrieve_win_states(W, W_V1, W_V2):
+    sys_win = []
+    env_win = []
+    # Counters to check that the number of environment and system winning vertices are correctly recorded in W_V1 and W_V2
+    n_sys_win = 0
+    n_env_win = 0
+    for ii in range(0,N):
+        W_ii = W[ii].copy()
+        env_action_states = W_ii[0].copy()
+        sys_action_states = W_ii[1].copy()
+        sys_win_ii = []
+        env_win_ii = []
+        for ee in env_action_states:
+            ee_idx = V1.index(ee)
+            env_temp_ptr = W_V1[ee_idx]  # Temporary pointer to point to the env winning list
+            if env_temp_ptr[2]==-1:      # If there is not a winning set assignment yet, make an assignment
+                env_temp_ptr[2] = ii
+                n_env_win += 1
+            s = int(ee[3:])
+            [env_st, sys_st] = get_state(s)
+            env_win_ii.append([env_st, sys_st])
+        for ss in sys_action_states:
+            ss_idx = V2.index(ss)
+            sys_temp_ptr = W_V2[ss_idx]   # Temporary pointer to the sys winning list
+            if sys_temp_ptr[2]==-1:
+                sys_temp_ptr[2] = ii
+                n_sys_win += 1
+            s = int(ss[3:])
+            [env_st, sys_st] = get_state(s)
+            sys_win_ii.append([env_st, sys_st])
 
-    # Assertion to check that all winning states have been correctly stored in W_V1 and W_V2:
-    assert(n_env_win == len(env_action_states))
-    assert(n_sys_win == len(sys_action_states))
+        # Assertion to check that all winning states have been correctly stored in W_V1 and W_V2:
+        assert(n_env_win == len(env_action_states))
+        assert(n_sys_win == len(sys_action_states))
 
-    sys_win.append(sys_win_ii)
-    env_win.append(env_win_ii)
+        sys_win.append(sys_win_ii)
+        env_win.append(env_win_ii)
 
-# Testing code:
-# print("System action winning states: ")
-# for ii in range(N):
-#     print(sys_win[ii])
+    assert(len(env_win[N-1]) == n_env_win)
+    assert(len(sys_win[N-1]) == n_sys_win)
+    return env_win, sys_win
 
-
-# print("Environment action winning states: ")
-# for ii in range(N):
-#     print(env_win[ii])
-
-assert(len(env_win[N-1]) == n_env_win)
-assert(len(sys_win[N-1]) == n_sys_win)
 # Winning sets : [W0_sys]
 # ADDITION on 3/17/20:
 # Edge information for test agent
@@ -341,8 +289,6 @@ def edge_info(GEdges, N, sys_win, env_win, W_V1, W_V2):
             assert(len(sys_edge) == 5)
     return env_edge_info, sys_edge_info
 
-# Finding edge information to then pass into synth_test_strategies:
-env_edge_info, sys_edge_info = edge_info(GEdges, N, sys_win, env_win, W_V1, W_V2)
 
 # Return edges where v is the starting vertex. The vertex input is in the form of [e,s]
 # Player is either the system or the environment
@@ -542,13 +488,12 @@ def synth_test_strategy(env_edge_info, sys_edge_info, e0, env_win, sys_win):
     return test_run                                              
 
 # Function to synthesize a test suite:
-def test_suite(N, Ntests, env_win, sys_win):
+def test_suite(N, Ntests, e0, env_win, sys_win):
     # Wf = [env_win[0], sys_win[0]]
     # W = [env_win[N-1], sys_win[N-1]]
     test_suite = []
     for ii in range(Ntests):
         print("Test #", str(ii))
-        e0 = [2,1]
         test = synth_test_strategy(env_edge_info, sys_edge_info, e0, env_win, sys_win)
         if test_suite:
             test_suite.append(test)
@@ -599,8 +544,59 @@ def node_coverage(test_suite, W_V2, sys_win, env_win):
             total_win_nodes = len(sys_win[N-1])            
     return win_nodes_covered, all_nodes_covered, total_win_nodes
 
+### Main components of the file:
+# Runner blocker example
+# Max. number of test-cases in the test suite:
+Ntests = 3
+Ns = 5
+Ne = 5
+V1, V2, Vp = vertices(Ns,Ne)
+# Transition system
+# Need to manually write transitions
+T1 = [[1], [3], [2,4], [3], [5]] #Environment transitions
+T2 = [[1,2,3,4], [1,2,3,5], [1,2,3,4,5], [1,3,4,5], [2,3,4,5]] # System transitions
+Tp = []
+
+# Unsafe set
+collision_indices = [2,3,4]
+U = unsafe(collision_indices)
+
+# Graph transition
+GVp, GEdges = trans_sys(V1, V2, Vp, T1, T2, Tp, U)
+
+# Initial Winning set:
+sys_W0 = [] # Winning states from system action states
+env_W0 = [] # Winning states from environment action states
+# Goal states of system and environment
+env_goal = [2,3,4]
+sys_goal = [5]
+for env_state in env_goal:
+    for sys_state in sys_goal:
+        w0 = state(sys_state, env_state)
+        sys_W0.extend(["v2_"+str(w0)])
+        env_W0.extend(["v1_"+str(w0)])
+W0 = [env_W0, sys_W0]
+
+N = 8 # Can reach winning set in atmost 5 steps
+W = synt_winning_set(GVp, GEdges, U, W0, N)
+print(W)
+
+# Reachability: 
+# If this is a winning set, it is a winning set only ... 
+# Create copies of vertices to store their winning set information:
+# -1 denotes that the vertex has not yet been designated in a winning set
+W_V1 = [[v1, get_state(int(v1[3:])), -1] for v1 in V1] # Env. action states
+W_V2 = [[v2, get_state(int(v2[3:])), -1] for v2 in V2] # Sys. action states
+W_Vp = [[vp, get_state(int(vp[3:])), -1] for vp in Vp] # Prob. action states
+
+env_win, sys_win = retrieve_win_states(W, W_V1, W_V2) # Retrieves winning sets of states in env winning set and system winning set
+# Finding edge information to then pass into synth_test_strategies:
+env_edge_info, sys_edge_info = edge_info(GEdges, N, sys_win, env_win, W_V1, W_V2)
+
+# Synthesize test suite:
 # Test Suite
-TS = test_suite(N, Ntests, env_win, sys_win)
+e0 = [2,1]
+TS = test_suite(N, Ntests, e0, env_win, sys_win)
 win_nodes_covered, all_nodes_covered, total_win_nodes = node_coverage(TS, W_V2, sys_win, env_win)
 print(TS)
 print("Total number of system action states that are winning: ")
@@ -609,3 +605,4 @@ print("Winning Nodes Covered:")
 print(win_nodes_covered)
 print("All Nodes Covered:")
 print(all_nodes_covered)
+
