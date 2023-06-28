@@ -14,7 +14,8 @@ from TE2_v2 import TE_ctrl_init2
 from breadth_first_search import BFS
 import csv
 from plot_trajectory import plot_trajectory
-
+import pdb 
+from collections import OrderedDict as od
 # from synth_graph import synth_graph
 
 # Grid: 4-by-4
@@ -25,6 +26,33 @@ nE = 2*M
 
 # Synthesizing graph for the system and environment
 G, A = synth_graph(M, N)
+
+# Dictionary to return state:
+def get_coordinates(state_num):
+    state_dict = od()
+    reverse_state_dict = dict()
+    for sys in range(1,nS+1):
+        for env in range(1,nE+1):
+            state = nE*(sys-1) + env - 1
+            state_dict[sys, env] = state
+            reverse_state_dict[state]= (sys, env)
+    return reverse_state_dict[state_num]
+
+# Get one of the shortest paths chosen at random:
+def rand_shortest_path(P):
+    short_path = []
+    if P:
+        min_sz = len(P[0])
+        for ii in range(0,len(P)):
+            sz = len(P[ii])
+            if(sz > min_sz):
+                nmin_sz = ii-1
+                break
+            else:
+                nmin_sz = ii
+        path_index = random.randint(0, nmin_sz)
+        short_path = P[path_index].copy()
+    return short_path
 
 # Converting obstacle index (1-8) to 4-by-4 grid index location (1-16)
 def convert_env(env0):
@@ -66,9 +94,15 @@ sim_time = 100
 # Initialize system controller
 sys_control = TE_ctrl_init2()
 print(sys_control.state, sim_time, init_sys, init_env, PARK, fuel)
+obst_pos1 = convert_env(init_env)
+u = TE_ctrl_init2.move(sys_control, PARK, obst_pos1)
+init_sys = u["Xr"]
+fuel = u["fuel"]
 
 # Finding obstacle transitions:
 while sim_time > 0:
+    # Initial Step:
+    print(f"System in cell {init_sys} with fuel {fuel}, and the obstacle in state {init_env}")
     # Environment takes an action
     if(init_env == 1):
             env1 = 2
@@ -97,74 +131,31 @@ while sim_time > 0:
     
     # Finding the shortest paths
     short_dist1, P1 = BFS(G, A, nS, nE, init_sys, env1, goal)
-    short_path1 = []
-    if P1:
-        min_sz = len(P1[0])
-        for ii in range(0,len(P1)):
-            sz = len(P1[ii])
-            if(sz > min_sz):
-                nmin_sz = ii-1
-                break
-            else:
-                nmin_sz = ii
-        path_index = random.randint(0, nmin_sz)
-        short_path1 = P1[path_index].copy()
+    short_path1 = rand_shortest_path(P1)
         
     short_dist2, P2 = BFS(G, A, nS, nE, init_sys, env2, goal)
-    short_path2 = []
-    if P2:
-        min_sz = len(P2[0])
-        for ii in range(0,len(P2)):
-            sz = len(P2[ii])
-            if(sz > min_sz):
-                nmin_sz = ii-1
-                break
-            else:
-                nmin_sz = ii
-        path_index = random.randint(0, nmin_sz)
-        short_path2 = P2[path_index].copy()
-        
+    short_path2 = rand_shortest_path(P2)
+    
     n1 = len(P1)
     n2 = len(P2)
     
     # If fuel is not enough to get to goal, we find the shortest path to go to refueling
     if(short_dist1 > fuel):
-        short_dist1_refuel, P1_refuel = BFS(G, A, nS, nE, init_sys, env1, refuel)
-        if P1_refuel:
-            min_sz_refuel = len(P1_refuel[0])
-            for ii in range(0,len(P1_refuel)):
-                sz = len(P1_refuel[ii])
-                if(sz > min_sz_refuel):
-                    nmin_sz_refuel = ii-1
-                    break
-                else:
-                    nmin_sz_refuel = ii
-            path_index_refuel = random.randint(0, nmin_sz)
-            n1 = len(P1_refuel)
-            P1 = P1_refuel
-            short_path1 = P1_refuel[path_index_refuel].copy()
-        else:
+        short_dist1_refuel, P1 = BFS(G, A, nS, nE, init_sys, env1, refuel)
+        short_path1 = rand_shortest_path(P1)
+        if short_path1 == []:
             print("No P1 refuel")
+        else:
+            n1 = len(P1)
     
     if(short_dist2 > fuel):
-        short_dist2_refuel, P2_refuel = BFS(G, A, nS, nE, init_sys, env2, refuel)
-       
-        if P2_refuel:
-            min_sz_refuel = len(P2_refuel[0])
-            for ii in range(0,len(P2_refuel)):
-                sz = len(P2_refuel[ii])
-                if(sz > min_sz_refuel):
-                    nmin_sz_refuel = ii-1
-                    break
-                else:
-                    nmin_sz_refuel = ii   
-            path_index_refuel = random.randint(0, nmin_sz)
-            n2 = len(P2_refuel)
-            P2 = P2_refuel
-            short_path2 = P2_refuel[path_index_refuel].copy()
-        else:
+        short_dist2_refuel, P2 = BFS(G, A, nS, nE, init_sys, env2, refuel)
+        short_path2 = rand_shortest_path(P2)
+        if short_path2 == []:
             print("No P2 refuel")
-            
+        else:
+            n2 = len(P2)
+
     # Finding environment reaction to system transition:
     if(init_sys == goal):
         park_switch = random.randint(0, 1)
@@ -179,7 +170,7 @@ while sim_time > 0:
 #       else:
 #           old_init_sys = init_sys
 #           init_sys = old_init_sys    
-                
+    
     elif(n1 > 0 and n2 == 0):
         init_env = env1
         if short_path1:
@@ -202,18 +193,25 @@ while sim_time > 0:
         if(n1 < n2):
             init_env = env1
             if short_path1:
-                obst_pos1 = convert_env(init_env)
-                u = TE_ctrl_init2.move(sys_control, PARK, obst_pos1)
-                init_sys = u["Xr"]
-                fuel = u["fuel"]
-                    
+                try:
+                    obst_pos1 = convert_env(init_env)
+                    u = TE_ctrl_init2.move(sys_control, PARK, obst_pos1)
+                    init_sys = u["Xr"]
+                    fuel = u["fuel"]
+                except:
+                    pdb.set_trace()    
+         
         elif(n1 >= n2):
             init_env = env2
             if short_path2:
-                obst_pos2 = convert_env(init_env)
-                u = TE_ctrl_init2.move(sys_control, PARK, obst_pos2)
-                init_sys = u["Xr"]
-                fuel = u["fuel"] # After system takes a step.
+                try: 
+                    obst_pos2 = convert_env(init_env)
+                    u = TE_ctrl_init2.move(sys_control, PARK, obst_pos2)
+                    init_sys = u["Xr"]
+                    fuel = u["fuel"] # After system takes a step.
+                except:
+                    print("Error no control action for system")
+                    pdb.set_trace()
                 
     
     # Save trajectory
@@ -251,3 +249,4 @@ file.close()
 
 #%%  Plot trajectory:
 animation = plot_trajectory(SYS_TRAJ, ENV_TRAJ, FUEL_TRAJ)
+print("Completed. See animation")

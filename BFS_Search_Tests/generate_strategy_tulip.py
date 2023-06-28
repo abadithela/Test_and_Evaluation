@@ -62,9 +62,12 @@ logging.basicConfig(level=logging.WARNING)
 env_vars = {}
 env_vars['park'] = 'boolean'
 env_vars['Cr'] = (2,15)
-env_init = {'(Cr = 2)'} # empty set
+env_init = {'(Cr = 2)'} 
 # Car is not patrolling. It is moving anywhere in the center two columns
-env_safe = {'(Cr = 14) -> X(Cr = 15 || Cr = 10)', '(Cr = 10) -> X(Cr = 14 || Cr = 6)', '(Cr = 6) -> X(Cr = 10 || Cr = 2)', '(Cr = 2) -> X(Cr = 6 || Cr = 3)', '(Cr = 3) -> X(Cr = 7 || Cr = 2)', '(Cr = 7) -> X(Cr = 3 || Cr = 11)', '(Cr = 11) -> X(Cr = 7 || Cr = 15)', '(Cr = 15) -> X(Cr = 11 || Cr = 14)',
+env_safe = {'(Cr = 14) -> X(Cr = 15 || Cr = 10)', '(Cr = 10) -> X(Cr = 14 || Cr = 6)', \
+            '(Cr = 6) -> X(Cr = 10 || Cr = 2)', '(Cr = 2) -> X(Cr = 6 || Cr = 3)', \
+            '(Cr = 3) -> X(Cr = 7 || Cr = 2)', '(Cr = 7) -> X(Cr = 3 || Cr = 11)', \
+            '(Cr = 11) -> X(Cr = 7 || Cr = 15)', '(Cr = 15) -> X(Cr = 11 || Cr = 14)',
             } 
 env_prog = {'park'} # []<>(park)
 
@@ -81,22 +84,22 @@ sys_vars['fuel'] = (0,10)
 sys_init = {'Xr=16', 'fuel = 10'}
 # try and see if it is possible to let the vehicle move a little:
 # that is, from Xr = 16, 
-sys_safe = {'(Xr = 1) -> X (Xr = 2 || Xr = 5)',
+sys_safe = {'(Xr = 1) -> X (Xr=1 || Xr = 2 || Xr = 5)',
             '(Xr = 2) -> X (Xr = 1 || Xr = 3 || Xr = 6 || Xr = 2)',
             '(Xr = 3) -> X (Xr = 2 || Xr = 4 || Xr = 7 || Xr = 3)',
-            '(Xr = 4) -> X (Xr = 3 || Xr = 8)',
-            '(Xr = 5) -> X (Xr = 1 || Xr = 6 || Xr = 9)',
+            '(Xr = 4) -> X (Xr = 4 || Xr = 3 || Xr = 8)',
+            '(Xr = 5) -> X (Xr = 1 || Xr = 5 || Xr = 6 || Xr = 9)',
             '(Xr = 6) -> X(Xr = 2 || Xr = 5 || Xr = 7 || Xr = 10 || Xr = 6)',
             '(Xr = 7) -> X(Xr = 3 || Xr = 6 || Xr = 8 || Xr = 11 || Xr = 7)',
-            '(Xr = 8) -> X(Xr = 4 || Xr = 7 || Xr = 12)',
-            '(Xr = 9) -> X (Xr = 5 || Xr = 10 || Xr = 13)',
+            '(Xr = 8) -> X(Xr = 4 || Xr = 7 || Xr = 8 || Xr = 12)',
+            '(Xr = 9) -> X (Xr = 5 || Xr = 9 || Xr = 10 || Xr = 13)',
             '(Xr = 10) -> X (Xr = 6 || Xr = 9 || Xr = 11 || Xr = 14 || Xr = 10)',
             '(Xr = 11) -> X (Xr = 7 || Xr = 10 || Xr = 12 || Xr = 15 || Xr = 11)',
-            '(Xr = 12) -> X (Xr = 8 || Xr = 11 || Xr = 16)',
-            '(Xr = 13) -> X (Xr = 9 || Xr = 14)',
+            '(Xr = 12) -> X (Xr = 8 || Xr = 11 || Xr = 12 || Xr = 16)',
+            '(Xr = 13) -> X (Xr = 9 || Xr = 13 || Xr = 14)',
             '(Xr = 14) -> X(Xr = 10 || Xr = 13 || Xr = 15 || Xr = 14)',
             '(Xr = 15) -> X(Xr = 11 || Xr = 14 || Xr = 16 || Xr = 15)',
-            '(Xr = 16) -> X(Xr = 12 || Xr = 15)',
+            '(Xr = 16) -> X(Xr = 12 || Xr = 15 || Xr = 16)',
             'Cr = 14 -> !(Xr = 14)',
             'Cr = 10 -> !(Xr = 10)',
             'Cr = 6 -> !(Xr = 6)',
@@ -120,6 +123,10 @@ sys_safe = {'(Xr = 1) -> X (Xr = 2 || Xr = 5)',
 }
 
 sys_prog = set()                # empty set
+
+# Environment won't crash into you:
+for xi in range(2,16):
+    env_safe |= {'(Xr = '+str(xi)+') -> X(!(Cr = '+str(xi)+'))'}
 #
 # System specification
 #

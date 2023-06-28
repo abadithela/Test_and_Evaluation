@@ -38,6 +38,6 @@ def synth_graph(M,N):
         A[:,ii] = (np.zeros(nS*nE)).T
 
     plt.spy(A)
-    G = nx.from_numpy_matrix(A)
+    G = nx.from_numpy_array(A)
     return G, A
     

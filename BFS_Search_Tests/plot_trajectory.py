@@ -16,7 +16,7 @@ import scipy.linalg as la
 import matplotlib.pyplot as plt
 import math
 import matplotlib.animation as animation
-
+import pdb
 def plot_trajectory(SYS_TRAJ, ENV_TRAJ, FUEL_TRAJ):
     # Plotting tools
     alw = 0.75    # AxesLineWidth
@@ -109,9 +109,9 @@ def plot_trajectory(SYS_TRAJ, ENV_TRAJ, FUEL_TRAJ):
         env_y = M - math.floor((env_raw-1)/M)
         return sys_x, sys_y, env_x, env_y
     
-    ani = animation.FuncAnimation(fig, animate, frames=MAX_FRAMES, interval = 100, blit=True)
-    ani.save("gridworld_example.avi")
-    plt.show()
+    ani = animation.FuncAnimation(fig, animate, frames=MAX_FRAMES, interval = 100, blit=True, repeat=False)
+    ani.save("gridworld_example.mp4", writer='ffmpeg')
+    # plt.show()
     return ani
 
 
