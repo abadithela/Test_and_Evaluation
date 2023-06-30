@@ -1,4 +1,4 @@
-# Test-and-Eval-
+# Test_and_Evaluation
 
 To run the simple 4-by-4 gridworld example, do the following:
 1. Run the generate_strategy_tulip.py file
