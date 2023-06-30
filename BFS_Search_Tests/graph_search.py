@@ -200,7 +200,7 @@ while sim_time > 0:
                     fuel = u["fuel"]
                 except:
                     pdb.set_trace()    
-         
+        
         elif(n1 >= n2):
             init_env = env2
             if short_path2:
